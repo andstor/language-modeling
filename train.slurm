@@ -68,6 +68,7 @@ deepspeed --hostfile=hostfile run_clm.py \
 --max_eval_samples 256 \
 --block_size 1024 \
 --bf16 \
+--warmup_ratio=0.1 \
 --gradient_accumulation_steps 16 --eval_accumulation_steps 16 \
 --per_device_train_batch_size 1 --per_device_eval_batch_size 1
 
