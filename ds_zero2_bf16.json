@@ -1,7 +1,4 @@
 {
-    "fp16": {
-        "enabled": false
-    },
     "bfloat16": {
         "enabled": true
     },  
