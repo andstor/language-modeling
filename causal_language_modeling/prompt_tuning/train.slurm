@@ -1,13 +1,13 @@
 #!/bin/sh
 #SBATCH --partition=GPUQ
 #SBATCH --account=share-ie-idi
-#SBATCH --time=07-00:00:00         # Upper time limit for the job (DD-HH:MM:SS)
+#SBATCH --time=00-01:00:00      # Upper time limit for the job (DD-HH:MM:SS)
 #SBATCH --nodes=1               # Allocate 1 nodes for the job
-#SBATCH --cpus-per-task=40       # Allocate 40 cores
-#SBATCH --mem=1T               # Allocate 200 GB of memory per node
-#SBATCH --gres=gpu:A100m40:10       # Allocate 4 GPUs per node
+#SBATCH --cpus-per-task=8       # Allocate 40 cores
+#SBATCH --mem=200G              # Allocate 200 GB of memory per node
+#SBATCH --gres=gpu:2            # Allocate 4 GPUs per node
 #SBATCH --job-name="GPT-J-6B"
-#SBATCH --output=train.out
+#SBATCH --output=train_test.out
 #SBATCH --mail-user=andr3.storhaug@gmail.com
 #SBATCH --mail-type=ALL
 
@@ -31,9 +31,8 @@ export TORCH_EXTENSIONS_DIR=~/tmp/torch_extensions
 
 # Load modules
 module purge
-module load foss/2020b
-module load Anaconda3/2020.07
-module load CUDA/11.3.1
+module load Python/3.10.8-GCCcore-12.2.0
+module load CUDA/11.7.0
 
 # Activate environment
 source .venv/bin/activate
@@ -43,33 +42,30 @@ truncate -s 0 hostfile
 scontrol show hostname $SLURM_NODELIST | while read line; do echo ${line}"  slots="${SLURM_GPUS_ON_NODE} >> hostfile; done
 
 # Set up environment
-export WANDB_LOG_MODEL=true
-export WANDB_WATCH=false # BF16 causes problems
-export WANDB_PROJECT=smart-contracts
+export WANDB_LOG_MODEL=false
+export WANDB_WATCH=true # BF16 causes problems
+export WANDB_PROJECT=smart-contracts-pt
 export WANDB_RESUME=allow
-export WANDB_RUN_ID=3gwyi5r7
+#export WANDB_RUN_ID=UNIQUE_ID
 
 # Start training
-deepspeed --hostfile=hostfile run_clm.py \
---deepspeed ./ds_zero2_bf16.json \
---run_name gpt-j-6B \
---model_name_or_path EleutherAI/gpt-j-6B \
---dataset_name andstor/smart_contracts \
---dataset_config_name inflated_plain_text \
---output_dir ./out \
---report_to all \
---validation_split_percentage 20 \
---save_steps 250 \
---load_best_model_at_end \
---do_train --do_eval \
---logging_first_step --logging_steps 1 \
---num_train_epochs 2 \
---evaluation_strategy steps --eval_steps 5 \
---max_eval_samples 256 \
---block_size 1024 \
---bf16 \
---warmup_ratio=0.1 \
---gradient_accumulation_steps 16 --eval_accumulation_steps 16 \
---per_device_train_batch_size 1 --per_device_eval_batch_size 1
-
+accelerate launch run_clm_prompt_tuning.py \
+    --model_name_or_path andstor/gpt-j-6B-smart-contract \
+    --dataset_name andstor/vulnerable_smart_contracts \
+    --dataset_config_name manual_all_s5_embedded \
+    --adapter_name default \
+    --num_virtual_tokens 4 \
+    --per_device_train_batch_size 1 \
+    --per_device_eval_batch_size 1 \
+    --block_size 2048 \
+    --report_to all \
+    --save_steps 250 \
+    --load_best_model_at_end \
+    --do_train \
+    --do_eval \
+    --bf16 \
+    --logging_first_step --logging_steps 1 \
+    --num_train_epochs 3 \
+    --evaluation_strategy steps --eval_steps 5 \
+    --output_dir output
 echo "-------------------------- DONE ---------------------------"
