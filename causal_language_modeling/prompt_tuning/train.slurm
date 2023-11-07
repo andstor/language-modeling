@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=8       # Allocate 40 cores
 #SBATCH --mem=200G              # Allocate 200 GB of memory per node
 #SBATCH --gres=gpu:2            # Allocate 4 GPUs per node
-#SBATCH --job-name="GPT-J-6B"
-#SBATCH --output=train_test.out
+#SBATCH --job-name="GPT-J-6B PT"
+#SBATCH --output=train.out
 #SBATCH --mail-user=andr3.storhaug@gmail.com
 #SBATCH --mail-type=ALL
 
@@ -37,13 +37,9 @@ module load CUDA/11.7.0
 # Activate environment
 source .venv/bin/activate
 
-# Generate hostfile
-truncate -s 0 hostfile
-scontrol show hostname $SLURM_NODELIST | while read line; do echo ${line}"  slots="${SLURM_GPUS_ON_NODE} >> hostfile; done
-
 # Set up environment
 export WANDB_LOG_MODEL=false
-export WANDB_WATCH=true # BF16 causes problems
+export WANDB_WATCH=true # BF16 might causes problems
 export WANDB_PROJECT=smart-contracts-pt
 export WANDB_RESUME=allow
 #export WANDB_RUN_ID=UNIQUE_ID
