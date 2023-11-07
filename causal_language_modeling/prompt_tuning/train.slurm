@@ -47,6 +47,7 @@ export WANDB_RESUME=allow
 # Start training
 accelerate launch run_clm_prompt_tuning.py \
     --model_name_or_path andstor/gpt-j-6B-smart-contract \
+    --tokenizer_name andstor/gpt-j-6B-smart-contract-vulnerabilities \
     --dataset_name andstor/vulnerable_smart_contracts \
     --dataset_config_name manual_all_s5_embedded \
     --adapter_name default \
