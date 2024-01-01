@@ -41,18 +41,18 @@ class WandbPredictionProgressCallback(WandbCallback):
         super().on_evaluate(args, state, control, **kwargs)
         # control the frequency of logging by logging the predictions every `freq` epochs
         #if state.epoch % self.freq == 0:
-        
         if state.global_step % state.eval_steps == 0:
-          # generate predictions
-          #print("OMG")
-          #print(self.sample_dataset)
-          predictions = self.trainer.predict(self.sample_dataset)
-          # decode predictions and labels
-          #print(predictions)
-          predictions = decode_predictions(self.tokenizer, predictions)
-          # add predictions to a wandb.Table
-          predictions_df = pd.DataFrame(predictions)
-          predictions_df["global_step"] = state.global_step
-          records_table = self._wandb.Table(dataframe=predictions_df)
-          # log the table to wandb
-          self._wandb.log({"sample_predictions": records_table})
+            if state.is_world_process_zero:
+                # generate predictions
+                #print("OMG")
+                #print(self.sample_dataset)
+                predictions = self.trainer.predict(self.sample_dataset)
+                # decode predictions and labels
+                #print(predictions)
+                predictions = decode_predictions(self.tokenizer, predictions)
+                # add predictions to a wandb.Table
+                predictions_df = pd.DataFrame(predictions)
+                predictions_df["global_step"] = state.global_step
+                records_table = self._wandb.Table(dataframe=predictions_df)
+                # log the table to wandb
+                self._wandb.log({"sample_predictions": records_table})
