@@ -41,12 +41,12 @@ class WandbPredictionProgressCallback(WandbCallback):
         super().on_evaluate(args, state, control, **kwargs)
         # control the frequency of logging by logging the predictions every `freq` epochs
         #if state.epoch % self.freq == 0:
-        if state.global_step % state.eval_steps == 0:
-            if state.is_world_process_zero:
                 # generate predictions
                 #print("OMG")
                 #print(self.sample_dataset)
-                predictions = self.trainer.predict(self.sample_dataset)
+        predictions = self.trainer.predict(self.sample_dataset)
+        if state.global_step % state.eval_steps == 0:
+            if state.is_world_process_zero:
                 # decode predictions and labels
                 #print(predictions)
                 predictions = decode_predictions(self.tokenizer, predictions)
