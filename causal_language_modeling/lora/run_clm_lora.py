@@ -275,7 +275,7 @@ class DataTrainingArguments:
                 assert extension in ["csv", "json", "txt"], "`validation_file` should be a csv, a json or a txt file."
         
         if isinstance(self.text_column_names, str):
-            self.text_column_names = self.text_column_names.split(",")
+            self.text_column_names = [x.strip() for x in self.text_column_names.split(",")]
 
 @dataclass
 class LoggingArguments:
