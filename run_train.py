@@ -24,9 +24,9 @@ https://huggingface.co/models?filter=text-generation
 
 import sys
 from pathlib import Path
-module_path = str(Path(__file__).parent.parent.parent)
-if module_path not in sys.path:
-    sys.path.append(module_path)
+#module_path = str(Path(__file__).parent.parent.parent)
+#if module_path not in sys.path:
+#    sys.path.append(module_path)
 
 
 import json
@@ -73,7 +73,7 @@ from peft import get_peft_config, get_peft_model, PromptTuningInit, PromptTuning
 
 # Local imports
 from utils import WandbPredictionProgressCallback, ClmSeq2SeqTrainer
-
+from arguments import ModelArguments, DataTrainingArguments, LoggingArguments, PeftArguments
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
@@ -84,322 +84,18 @@ require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/lang
 logger = logging.getLogger(__name__)
 
 
-MODEL_CONFIG_CLASSES = list(MODEL_FOR_CAUSAL_LM_MAPPING.keys())
-MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
-
-@dataclass
-class ModelArguments:
-    """
-    Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
-    """
-
-    model_name_or_path: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "The model checkpoint for weights initialization. Don't set if you want to train a model from scratch."
-            )
-        },
-    )
-    model_type: Optional[str] = field(
-        default=None,
-        metadata={"help": "If training from scratch, pass a model type from the list: " + ", ".join(MODEL_TYPES)},
-    )
-    config_overrides: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Override some existing default config settings when a model is trained from scratch. Example: "
-                "n_embd=10,resid_pdrop=0.2,scale_attn_weights=false,summary_type=cls_index"
-            )
-        },
-    )
-    config_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
-    )
-    tokenizer_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
-    )
-    cache_dir: Optional[str] = field(
-        default=None,
-        metadata={"help": "Where do you want to store the pretrained models downloaded from huggingface.co"},
-    )
-    use_fast_tokenizer: bool = field(
-        default=True,
-        metadata={"help": "Whether to use one of the fast tokenizer (backed by the tokenizers library) or not."},
-    )
-    model_revision: str = field(
-        default="main",
-        metadata={"help": "The specific model version to use (can be a branch name, tag name or commit id)."},
-    )
-    token: str = field(
-        default=None,
-        metadata={
-            "help": (
-                "The token to use as HTTP bearer authorization for remote files. If not specified, will use the token "
-                "generated when running `huggingface-cli login` (stored in `~/.huggingface`)."
-            )
-        },
-    )
-    use_auth_token: bool = field(
-        default=None,
-        metadata={
-            "help": "The `use_auth_token` argument is deprecated and will be removed in v4.34. Please use `token` instead."
-        },
-    )
-    trust_remote_code: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "Whether or not to allow for custom models defined on the Hub in their own modeling files. This option"
-                "should only be set to `True` for repositories you trust and in which you have read the code, as it will "
-                "execute code present on the Hub on your local machine."
-            )
-        },
-    )
-    torch_dtype: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Override the default `torch.dtype` and load the model under this dtype. If `auto` is passed, the "
-                "dtype will be automatically derived from the model's weights."
-            ),
-            "choices": ["auto", "bfloat16", "float16", "float32"],
-        },
-    )
-    low_cpu_mem_usage: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "It is an option to create the model as an empty shell, then only materialize its parameters when the pretrained weights are loaded. "
-                "set True will benefit LLM loading time and RAM consumption."
-            )
-        },
-    )
-
-    def __post_init__(self):
-        if self.config_overrides is not None and (self.config_name is not None or self.model_name_or_path is not None):
-            raise ValueError(
-                "--config_overrides can't be used in combination with --config_name or --model_name_or_path"
-            )
-
-
-@dataclass
-class DataTrainingArguments:
-    """
-    Arguments pertaining to what data we are going to input our model for training and eval.
-    """
-
-    dataset_name: Optional[str] = field(
-        default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
-    )
-    dataset_config_name: Optional[str] = field(
-        default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
-    )
-    text_column_names: Optional[Union[List[str], str]] = field(
-        default=None, metadata={"help": "The dataset column(s) name to use."}
-    )
-    train_file: Optional[str] = field(default=None, metadata={"help": "The input training data file (a text file)."})
-    validation_file: Optional[str] = field(
-        default=None,
-        metadata={"help": "An optional input evaluation data file to evaluate the perplexity on (a text file)."},
-    )
-    max_train_samples: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": (
-                "For debugging purposes or quicker training, truncate the number of training examples to this "
-                "value if set."
-            )
-        },
-    )
-    max_eval_samples: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": (
-                "For debugging purposes or quicker training, truncate the number of evaluation examples to this "
-                "value if set."
-            )
-        },
-    )
-    streaming: bool = field(default=False, metadata={"help": "Enable streaming mode"})
-    block_size: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Optional input sequence length after tokenization. "
-                "The training dataset will be truncated in block of this size for training. "
-                "Default to the model max input length for single sentence inputs (take into account special tokens)."
-            )
-        },
-    )
-    overwrite_cache: bool = field(
-        default=False, metadata={"help": "Overwrite the cached training and evaluation sets"}
-    )
-    validation_split_percentage: Optional[int] = field(
-        default=5,
-        metadata={
-            "help": "The percentage of the train set used as validation set in case there's no validation split"
-        },
-    )
-    preprocessing_num_workers: Optional[int] = field(
-        default=None,
-        metadata={"help": "The number of processes to use for the preprocessing."},
-    )
-    keep_linebreaks: bool = field(
-        default=True, metadata={"help": "Whether to keep line breaks when using TXT files or not."}
-    )
-    ignore_pad_token_for_loss: bool = field(
-        default=True,
-        metadata={
-            "help": "Whether to ignore the tokens corresponding to padded labels in the loss computation or not."
-        },
-    )
-    target_start_key: Optional[str] = field(
-        default=None,
-        metadata={"help": "Key for meta column containing the index of the character to start the target sequence from when predicting with generation."},
-    )
-
-    def __post_init__(self):
-        if self.streaming:
-            require_version("datasets>=2.0.0", "The streaming feature requires `datasets>=2.0.0`")
-
-        if self.dataset_name is None and self.train_file is None and self.validation_file is None:
-            raise ValueError("Need either a dataset name or a training/validation file.")
-        else:
-            if self.train_file is not None:
-                extension = self.train_file.split(".")[-1]
-                assert extension in ["csv", "json", "txt"], "`train_file` should be a csv, a json or a txt file."
-            if self.validation_file is not None:
-                extension = self.validation_file.split(".")[-1]
-                assert extension in ["csv", "json", "txt"], "`validation_file` should be a csv, a json or a txt file."
-        
-        if isinstance(self.text_column_names, str):
-            self.text_column_names = [x.strip() for x in self.text_column_names.split(",")]
-
-@dataclass
-class LoggingArguments:
-    """
-    Arguments pertaining to logging.
-    """
-    log_preditions: bool = field(
-        default=False, metadata={"help": "Whether to log predictions during training."}
-    )
-    log_predition_samples: int = field(
-        default=10, metadata={"help": "Number of samples to log during training."}
-    )
-
-@dataclass
-class LoraArguments:
-    """
-    Arguments pertaining to LoRa.
-    """
-    rank: int = field(default=8, metadata={"help": "Lora attention dimension"})
-    target_modules: Optional[Union[List[str], str]] = field(
-        default=None,
-        metadata={
-            "help": "List of module names or regex expression of the module names to replace with Lora."
-            "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$' "
-        },
-    )
-    lora_alpha: int = field(default=8, metadata={"help": "Lora alpha"})
-    lora_dropout: float = field(default=0.0, metadata={"help": "Lora dropout"})
-    fan_in_fan_out: bool = field(
-        default=False,
-        metadata={"help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"},
-    )
-    bias: str = field(default="none", metadata={"help": "Bias type for Lora. Can be 'none', 'all' or 'lora_only'"})
-    modules_to_save: Optional[List[str]] = field(
-        default=None,
-        metadata={
-            "help": "List of modules apart from LoRA layers to be set as trainable and saved in the final checkpoint. "
-            "For example, in Sequence Classification or Token Classification tasks, "
-            "the final layer `classifier/score` are randomly initialized and as such need to be trainable and saved."
-        },
-    )
-    init_lora_weights: bool = field(
-        default=True,
-        metadata={
-            "help": (
-                "Whether to initialize the weights of the Lora layers with their default initialization. Don't change "
-                "this setting, except if you know exactly what you're doing."
-            ),
-        },
-    )
-    layers_to_transform: Optional[List[int]] = field(
-        default=None,
-        metadata={
-            "help": "The layer indexes to transform, is this argument is specified, PEFT will transform only the layers indexes that are specified inside this list. If a single integer is passed, PEFT will transform only the layer at this index. "
-            "This only works when target_modules is a list of str."
-        },
-    )
-    layers_pattern: Optional[List[str]] = field(
-        default=None,
-        metadata={
-            "help": "The layer pattern name, used only if `layers_to_transform` is different to None and if the layer pattern is not in the common layers pattern."
-            "This only works when target_modules is a list of str."
-        },
-    )
-    rank_pattern: Optional[str] = field(
-        default_factory=dict,
-        metadata={
-            "help": (
-                "The mapping from layer names or regexp expression to ranks which are different from the default rank specified by `r`. "
-                "For example, `{model.decoder.layers.0.encoder_attn.k_proj: 8`}"
-            )
-        },
-    )
-    alpha_pattern: Optional[str] = field(
-        default_factory=dict,
-        metadata={
-            "help": (
-                "The mapping from layer names or regexp expression to alphas which are different from the default alpha specified by `lora_alpha`. "
-                "For example, `{model.decoder.layers.0.encoder_attn.k_proj: 32`}"
-            )
-        },
-    )
-
-    adapter_name: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "The name to use for the adapter. If not specified, the adapter will be named `default`."
-            )
-        },
-    )
-
-    def __post_init__(self):
-        # handle lists of str. split the string by comma
-        if isinstance(self.target_modules, str):
-            self.target_modules = self.target_modules.split(",")
-        if isinstance(self.modules_to_save, str):
-            self.modules_to_save = self.modules_to_save.split(",")
-        if isinstance(self.layers_to_transform, str):
-            self.layers_to_transform = self.layers_to_transform.split(",")
-        if isinstance(self.layers_pattern, str):
-            self.layers_pattern = self.layers_pattern.split(",")
-        
-        if isinstance(self.rank_pattern, str):
-            self.rank_pattern = json.loads(self.rank_pattern)
-        if isinstance(self.alpha_pattern, str):
-            self.alpha_pattern = json.loads(self.alpha_pattern)
-
-
-
-
-
 def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, LoraArguments, LoggingArguments, TrainingArguments))
+    parser = HfArgumentParser((PeftArguments, ModelArguments, DataTrainingArguments, LoggingArguments, TrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, lora_args, logging_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        peft_args, model_args, data_args, logging_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
-        model_args, data_args, lora_args, logging_args, training_args = parser.parse_args_into_dataclasses()
+        peft_args, model_args, data_args, logging_args, training_args = parser.parse_args_into_dataclasses()
 
     if model_args.use_auth_token is not None:
         warnings.warn(
@@ -599,6 +295,8 @@ def main():
             torch_dtype=torch_dtype,
             low_cpu_mem_usage=model_args.low_cpu_mem_usage,
         )
+        # this is here to save gpu vram. Likely only needed when using 40b or when oom issues happen ref: https://stackoverflow.com/questions/76633335/why-does-hugging-face-falcon-model-use-mode-config-use-cache-false-why-wouldn
+        #model.config.use_cache = False
     else:
         model = AutoModelForCausalLM.from_config(config, trust_remote_code=model_args.trust_remote_code)
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
@@ -610,66 +308,40 @@ def main():
     if len(tokenizer) > embedding_size:
         model.resize_token_embeddings(len(tokenizer))
 
-    peft_config = LoraConfig(
-        task_type=TaskType.CAUSAL_LM,
-        r=lora_args.rank,
-        target_modules=lora_args.target_modules,
-        lora_alpha=lora_args.lora_alpha,
-        lora_dropout=lora_args.lora_dropout,
-        fan_in_fan_out=lora_args.fan_in_fan_out,
-        bias=lora_args.bias,
-        modules_to_save=lora_args.modules_to_save,
-        layers_to_transform=lora_args.layers_to_transform,
-        layers_pattern=lora_args.layers_pattern,
-        rank_pattern=lora_args.rank_pattern,
-        alpha_pattern=lora_args.alpha_pattern
-    )
-    model = get_peft_model(model, peft_config, adapter_name=lora_args.adapter_name)
 
 
+    # Initialize PEFT model if needed
+    if peft_args.use_lora or peft_args.use_prompt_tuning:
+        
+        if peft_args.use_lora:
+            from peft import PromptTuningConfig, PromptTuningInit, TaskType
+            peft_config = LoraConfig(
+                task_type=TaskType.CAUSAL_LM,
+                r=peft_args.rank,
+                target_modules=peft_args.target_modules,
+                lora_alpha=peft_args.lora_alpha,
+                lora_dropout=peft_args.lora_dropout,
+                fan_in_fan_out=peft_args.fan_in_fan_out,
+                bias=peft_args.bias,
+                modules_to_save=peft_args.modules_to_save,
+                layers_to_transform=peft_args.layers_to_transform,
+                layers_pattern=peft_args.layers_pattern,
+                rank_pattern=peft_args.rank_pattern,
+                alpha_pattern=peft_args.alpha_pattern
+            )
 
+        if peft_args.use_prompt_tuning:
+            from peft import PromptTuningConfig, PromptTuningInit, TaskType
 
+            peft_config = PromptTuningConfig(
+                task_type=TaskType.CAUSAL_LM,
+                num_virtual_tokens=peft_args.num_virtual_tokens,
+                prompt_tuning_init=PromptTuningInit.TEXT if peft_args.virtual_tokens_init_text else PromptTuningInit.RANDOM,
+                prompt_tuning_init_text=peft_args.virtual_tokens_init_text,
+                tokenizer_name_or_path=tokenizer.init_kwargs["name_or_path"],
+            )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        model = get_peft_model(model, peft_config, adapter_name=peft_args.adapter_name)
 
 
 
@@ -784,6 +456,8 @@ def main():
         pad_to_multiple_of=8 if training_args.fp16 else None,
     )
 
+
+    training_args.gradient_checkpointing_kwargs={"use_reentrant": False} if training_args.gradient_checkpointing else None
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
@@ -802,6 +476,7 @@ def main():
         progress_callback = WandbPredictionProgressCallback(trainer, tokenizer, eval_dataset, logging_args.log_predition_samples)
         trainer.add_callback(progress_callback)
 
+
     # Training
     if training_args.do_train:
         checkpoint = None
@@ -811,6 +486,16 @@ def main():
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         trainer.save_model()  # Saves the tokenizer too for easy upload
+        
+        ### if deepspeed is used, and half precision is used, to save the model in fp32 we need a checkpoint that we can extract the fp32 model from.
+        ### see https://github.com/huggingface/transformers/issues/28921
+        if training_args.deepspeed and not (training_args.fp16 or training_args.bf16):
+            logger.warning(
+                "Saved model is in half-precision. "
+                "Saving extra checkpoint for allowing fp32 parameters extraction. "
+                "Use the zero_to_fp32.py script to extract the fp32 model from the checkpoint.")
+            trainer.model_wrapped.save_checkpoint(training_args.output_dir)
+        ###
 
         metrics = train_result.metrics
 

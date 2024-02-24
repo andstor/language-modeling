@@ -1,7 +1,17 @@
 {
-    "bfloat16": {
-        "enabled": true
-    },  
+    "fp16": {
+        "enabled": "auto",
+        "auto_cast": false,
+        "loss_scale": 0,
+        "loss_scale_window": 1000,
+        "initial_scale_power": 16,
+        "hysteresis": 2,
+        "consecutive_hysteresis": false,
+        "min_loss_scale": 1
+    },
+    "bf16": {
+      "enabled": "auto"
+    },
     "optimizer": {
         "type": "AdamW",
         "params": {
@@ -12,26 +22,26 @@
         }
     },
     "scheduler": {
-        "type": "WarmupLR",
+        "type": "WarmupDecayLR",
         "params": {
             "warmup_min_lr": "auto",
             "warmup_max_lr": "auto",
-            "warmup_num_steps": "auto"
+            "warmup_num_steps": "auto",
+            "total_num_steps": "auto"
         }
     },
     "zero_optimization": {
-        "stage": 2,
+        "stage": 1,
         "allgather_partitions": true,
         "allgather_bucket_size": 2e8,
         "overlap_comm": true,
         "reduce_scatter": true,
-        "reduce_bucket_size": 2e8,
-        "contiguous_gradients": true,
-        "cpu_offload": true
+        "reduce_bucket_size": "auto",
+        "contiguous_gradients": true
     },
     "gradient_accumulation_steps": "auto",
     "gradient_clipping": "auto",
-    "steps_per_print": 100,
+    "steps_per_print": 2000,
     "train_batch_size": "auto",
     "train_micro_batch_size_per_gpu": "auto",
     "wall_clock_breakdown": false
