@@ -642,6 +642,13 @@ You can easily log and monitor your runs code.
 * [TensorBoard](https://www.tensorflow.org/tensorboard)
 * [Weights & Biases](https://docs.wandb.ai/integrations/huggingface)
 
+
+#### TensorBoard
+
+```bash
+pip install tensorboard
+```
+
 #### Weights & Biases
 
 To use Weights & Biases, install the `wandb` package with:
