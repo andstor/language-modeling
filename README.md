@@ -61,7 +61,7 @@ usage: run_train.py [-h] [--adapter_name ADAPTER_NAME] [--use_lora [USE_LORA]] [
                   [--model_revision MODEL_REVISION] [--token TOKEN] [--use_auth_token [USE_AUTH_TOKEN]]
                   [--trust_remote_code [TRUST_REMOTE_CODE]] [--torch_dtype {auto,bfloat16,float16,float32}]
                   [--low_cpu_mem_usage [LOW_CPU_MEM_USAGE]] [--dataset_name DATASET_NAME]
-                  [--dataset_config_name DATASET_CONFIG_NAME] [--text_column_names TEXT_COLUMN_NAMES]
+                  [--dataset_config_name DATASET_CONFIG_NAME] [--text_column_names TEXT_COLUMN_NAMES] [--target_colum_name TARGET_COLUM_NAME]
                   [--train_file TRAIN_FILE] [--validation_file VALIDATION_FILE] [--max_train_samples MAX_TRAIN_SAMPLES]
                   [--max_eval_samples MAX_EVAL_SAMPLES] [--streaming [STREAMING]] [--block_size BLOCK_SIZE]
                   [--overwrite_cache [OVERWRITE_CACHE]] [--validation_split_percentage VALIDATION_SPLIT_PERCENTAGE]
@@ -235,6 +235,8 @@ optional arguments:
                         The configuration name of the dataset to use (via the datasets library). (default: None)
   --text_column_names TEXT_COLUMN_NAMES
                         The dataset column(s) name to use. (default: None)
+  --target_colum_name TARGET_COLUM_NAME
+                        The dataset column name to use for labeling. Will be appended to the input text. (default: None)
   --train_file TRAIN_FILE
                         The input training data file (a text file). (default: None)
   --validation_file VALIDATION_FILE
@@ -600,7 +602,14 @@ optional arguments:
                         classes. (default: None)
 ```
 
+### Causal Seq2Seq Language Modeling
 
+The script supports sequence to sequence objective within the causal language modeling paradigm. To use this, simply provide both a `--text_column_names` and a `--target_colum_name` argument. The `--text_column_names` argument should be a list of the names of the columns that contain the input text. The `--target_colum_name` argument should be the name of the column that contains the target text. For example:
+
+```shell
+--text_column_names "source" \
+--target_colum_name "target" \
+```
 
 ### Parameter-Efficient Fine-Tuning (PEFT) methods
 
@@ -694,11 +703,12 @@ accelerate launch \
     --zero3_init_flag true \
     --zero3_save_16bit_model false \
     \
-    run_clm.py \
+    run_train.py \
     --model_name_or_path facebook/opt-125m \
     --dataset_name andstor/methods2test_small \
     --dataset_config_name fm+t \
-    --text_column_names "source, target" \
+    --text_column_names "source" \
+    --target_colum_name "target" \
     --preprocessing_num_workers 10 \
     \
     --report_to none \
@@ -706,8 +716,6 @@ accelerate launch \
     --output_dir .data/tmp/test-clm \
     --overwrite_output_dir \
     --logging_dir ./logs \
-    --log_preditions \
-    --log_predition_samples 10 \
     \
     --block_size 2048 \
     \

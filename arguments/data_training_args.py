@@ -16,7 +16,10 @@ class DataTrainingArguments:
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
     )
     text_column_names: Optional[Union[List[str], str]] = field(
-        default=None, metadata={"help": "The dataset column(s) name to use."}
+        default=None, metadata={"help": "The dataset column(s) name to use. If it's a list of column names, they will be concatenated."}
+    )
+    target_colum_name: Optional[str] = field(
+        default=None, metadata={"help": "The dataset column name to use for labeling. Will be appended to the input text."}
     )
     train_file: Optional[str] = field(default=None, metadata={"help": "The input training data file (a text file)."})
     validation_file: Optional[str] = field(

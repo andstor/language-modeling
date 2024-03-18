@@ -375,12 +375,27 @@ def main():
 
     def tokenize_function(examples):
         with CaptureLogger(tok_logger) as cl:
-            input_ids = []
-            attention_mask = []
+            input_ids = None
+            attention_mask = None
             for col in data_args.text_column_names:
-                input_ids.extend(tokenizer(examples[col])["input_ids"])
-                attention_mask.extend(tokenizer(examples[col])["attention_mask"])
-            labels = input_ids.copy()
+                if input_ids is None:
+                    tokenized_example = tokenizer(examples[col], add_special_tokens=True)
+                    input_ids = tokenized_example["input_ids"]
+                    attention_mask = tokenized_example["attention_mask"]
+                else:
+                    tokenized_example = tokenizer(examples[col], add_special_tokens=False)
+                    [input_ids[i].extend(tokenized_example["input_ids"][i]) for i in range(len(input_ids))]
+                    [attention_mask[i].extend(tokenized_example["attention_mask"][i]) for i in range(len(attention_mask))]
+                
+            if data_args.target_colum_name is not None:
+                tokenized_example = tokenizer(examples[data_args.target_colum_name], add_special_tokens=False)
+                labels = [[-100]*len(input_ids[i]) for i in range(len(input_ids))]
+                [input_ids[i].extend(tokenized_example["input_ids"][i]) for i in range(len(input_ids))]
+                [attention_mask[i].extend(tokenized_example["attention_mask"][i]) for i in range(len(attention_mask))]
+                [labels[i].extend(tokenized_example["input_ids"][i]) for i in range(len(labels))]
+            else:
+                labels = input_ids.copy()
+
         # clm input could be much much longer than block_size
         if "Token indices sequence length is longer than the" in cl.out:
             tok_logger.warning(
