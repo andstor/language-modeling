@@ -604,12 +604,7 @@ optional arguments:
 
 ### Causal Seq2Seq Language Modeling
 
-The script supports sequence to sequence objective within the causal language modeling paradigm. To use this, simply provide both a `--text_column_names` and a `--target_colum_name` argument. The `--text_column_names` argument should be a list of the names of the columns that contain the input text. The `--target_colum_name` argument should be the name of the column that contains the target text. For example:
-
-```shell
---text_column_names "source" \
---target_colum_name "target" \
-```
+The script supports sequence to sequence objective within the causal language modeling paradigm. To use this, simply provide both a `--text_column_names` and a `--target_colum_name` argument. The `--text_column_names` argument should be a list of the names of the columns that contain the input text. The `--target_colum_name` argument should be the name of the column that contains the target text.
 
 ### Parameter-Efficient Fine-Tuning (PEFT) methods
 
