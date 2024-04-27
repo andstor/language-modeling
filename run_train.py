@@ -356,21 +356,32 @@ def main():
     tok_logger = transformers.utils.logging.get_logger("transformers.tokenization_utils_base")
 
 
+    if hasattr(config, "max_position_embeddings"):
+        max_pos_embeddings = config.max_position_embeddings
+    else:
+        # Define a default value if the attribute is missing in the config.
+        max_pos_embeddings = 1024
+
     if data_args.block_size is None:
         block_size = tokenizer.model_max_length
-        if block_size > config.max_position_embeddings:
+        if block_size > max_pos_embeddings:
             logger.warning(
                 f"The tokenizer picked seems to have a very large `model_max_length` ({tokenizer.model_max_length}). "
                 f"Using block_size={min(1024, config.max_position_embeddings)} instead. You can change that default value by passing --block_size xxx."
             )
-            block_size = min(1024, config.max_position_embeddings)
+            if max_pos_embeddings > 0:
+                block_size = min(1024, max_pos_embeddings)
+            else:
+                block_size = 1024
     else:
         if data_args.block_size > tokenizer.model_max_length:
             logger.warning(
-                f"The block_size passed ({data_args.block_size}) is larger than the maximum length for the model "
-                f"({tokenizer.model_max_length}). Using block_size={tokenizer.model_max_length}."
+                f"The block_size passed ({data_args.block_size}) seems to be larger than the maximum length for the model "
+                f"({tokenizer.model_max_length}). Using block_size={data_args.block_size}."
             )
-        block_size = min(data_args.block_size, tokenizer.model_max_length)
+        # Some models have inproperly tokenizer.model_max_length, so we allow overriding it
+        #block_size = min(data_args.block_size, tokenizer.model_max_length)
+        block_size = data_args.block_size
 
 
     def tokenize_function(examples):
