@@ -482,7 +482,6 @@ def main():
         pad_to_multiple_of=8 if training_args.fp16 else None,
     )
 
-    training_args.lr_scheduler_kwargs={"warmup_type": "linear"} if (training_args.warmup_steps > 0 or training_args.warmup_ratio > 0) else {} # TODO: make this configurable
     training_args.gradient_checkpointing_kwargs={"use_reentrant": False} if training_args.gradient_checkpointing else None
     # Initialize our Trainer
     trainer = Trainer(
