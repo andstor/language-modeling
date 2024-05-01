@@ -382,6 +382,9 @@ def main():
         # Some models have inproperly tokenizer.model_max_length, so we allow overriding it
         #block_size = min(data_args.block_size, tokenizer.model_max_length)
         block_size = data_args.block_size
+    
+    if peft_args.use_prompt_tuning:
+        block_size -= peft_args.num_virtual_tokens
 
 
     def tokenize_function(examples):
