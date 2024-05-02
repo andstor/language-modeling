@@ -346,6 +346,16 @@ def main():
 
 
     # Preprocessing the datasets.
+
+    # Data collator
+    #label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
+    data_collator = DataCollatorForSeq2Seq(
+        tokenizer,
+        model=model,
+        #label_pad_token_id=label_pad_token_id,
+        pad_to_multiple_of=8 if training_args.fp16 else None,
+    )
+
     # First we tokenize all the texts.
     if training_args.do_train:
         column_names = list(raw_datasets["train"].features)
@@ -385,6 +395,10 @@ def main():
     
     if peft_args.use_prompt_tuning:
         block_size -= peft_args.num_virtual_tokens
+        if data_collator.pad_to_multiple_of is not None:
+            block_size -= data_collator.pad_to_multiple_of - (peft_args.num_virtual_tokens % data_collator.pad_to_multiple_of)
+            logger.warning(f"Prompt tuning is used while inputs are padded to multiple of {data_collator.pad_to_multiple_of}. "
+                        f"New block size is {block_size} to accomodate virtual tokens.")
 
 
     def tokenize_function(examples):
@@ -413,7 +427,7 @@ def main():
         # clm input could be much much longer than block_size
         if "Token indices sequence length is longer than the" in cl.out:
             tok_logger.warning(
-                "^^^^^^^^^^^^^^^^ Please ignore the warning above - this long input will be chunked into smaller bits"
+                "^^^^^^^^^^^^^^^^ Please ignore the warning above - too long input will be filtered out"
                 " before being passed to the model."
             )
         return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}
@@ -475,15 +489,6 @@ def main():
             logits = logits[0]
         return logits.argmax(dim=-1)
 
-
-    # Data collator
-    #label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
-    data_collator = DataCollatorForSeq2Seq(
-        tokenizer,
-        model=model,
-        #label_pad_token_id=label_pad_token_id,
-        pad_to_multiple_of=8 if training_args.fp16 else None,
-    )
 
     training_args.gradient_checkpointing_kwargs={"use_reentrant": False} if training_args.gradient_checkpointing else None
     # Initialize our Trainer
