@@ -477,12 +477,12 @@ def main():
         preds, labels = eval_preds
         # preds have the same shape as the labels, after the argmax(-1) has been calculated
         # by preprocess_logits_for_metrics but we need to shift the labels
-        labels = labels[:, 1:].reshape(-1)
-        preds = preds[:, :-1].reshape(-1)
-
+        labels = labels[:, 1:]
+        preds = preds[:, :-1]
         if peft_args.use_prompt_tuning:
-            preds = preds[peft_args.num_virtual_tokens:]
-
+            preds = preds[:, peft_args.num_virtual_tokens:]
+        labels = labels.reshape(-1)
+        preds = preds.reshape(-1)
         return metric.compute(predictions=preds, references=labels)
 
 
