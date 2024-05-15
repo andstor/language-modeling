@@ -311,10 +311,20 @@ def main():
 
 
     # Initialize PEFT model if needed
-    if peft_args.use_lora or peft_args.use_prompt_tuning:
+    if peft_args.use_lora or peft_args.use_prompt_tuning or peft_args.use_ia3:
         
-        if peft_args.use_lora:
+        if peft_args.use_prompt_tuning:
             from peft import PromptTuningConfig, PromptTuningInit, TaskType
+            peft_config = PromptTuningConfig(
+                task_type=TaskType.CAUSAL_LM,
+                num_virtual_tokens=peft_args.num_virtual_tokens,
+                prompt_tuning_init=PromptTuningInit.TEXT if peft_args.virtual_tokens_init_text else PromptTuningInit.RANDOM,
+                prompt_tuning_init_text=peft_args.virtual_tokens_init_text,
+                tokenizer_name_or_path=tokenizer.init_kwargs["name_or_path"],
+            )
+
+        if peft_args.use_lora:
+            from peft import LoraConfig, TaskType
             peft_config = LoraConfig(
                 task_type=TaskType.CAUSAL_LM,
                 r=peft_args.rank,
@@ -330,15 +340,15 @@ def main():
                 alpha_pattern=peft_args.alpha_pattern
             )
 
-        if peft_args.use_prompt_tuning:
-            from peft import PromptTuningConfig, PromptTuningInit, TaskType
-
-            peft_config = PromptTuningConfig(
+        if peft_args.use_ia3:
+            from peft import IA3Config, TaskType
+            peft_config = IA3Config(
                 task_type=TaskType.CAUSAL_LM,
-                num_virtual_tokens=peft_args.num_virtual_tokens,
-                prompt_tuning_init=PromptTuningInit.TEXT if peft_args.virtual_tokens_init_text else PromptTuningInit.RANDOM,
-                prompt_tuning_init_text=peft_args.virtual_tokens_init_text,
-                tokenizer_name_or_path=tokenizer.init_kwargs["name_or_path"],
+                target_modules=peft_args.target_modules,
+                feedforward_modules=peft_args.feedforward_modules,
+                fan_in_fan_out=peft_args.fan_in_fan_out,
+                modules_to_save=peft_args.modules_to_save,
+                init_ia3_weights=peft_args.init_ia3_weights
             )
 
         model = get_peft_model(model, peft_config, adapter_name=peft_args.adapter_name)
@@ -526,7 +536,7 @@ def main():
         
         ### if deepspeed is used, and half precision is used, to save the model in fp32 we need a checkpoint that we can extract the fp32 model from.
         ### see https://github.com/huggingface/transformers/issues/28921
-        if training_args.deepspeed and not (training_args.fp16 or training_args.bf16):
+        if training_args.deepspeed and (training_args.fp16 or training_args.bf16):
             logger.warning(
                 "Saved model is in half-precision. "
                 "Saving extra checkpoint for allowing fp32 parameters extraction. "

@@ -10,7 +10,7 @@ class PeftArguments:
     """
 
     adapter_name: Optional[str] = field(
-        default=None,
+        default="default",
         metadata={
             "help": (
                 "The name to use for the adapter. If not specified, the adapter will be named `default`."
@@ -18,6 +18,25 @@ class PeftArguments:
         },
     )
 
+    # Prompt tuning arguments
+    use_prompt_tuning: bool = field(
+        default=False,
+        metadata={"help": "Whether to use prompt tuning"}
+    )
+    num_virtual_tokens: int = field(
+        default=None,
+        metadata={"help": "Number of virtual tokens to use for prompt tuning."}
+    )
+    virtual_tokens_init_text: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "Initialize the virtual tokens with the given text. Otherwise, the virtual tokens will be initialized randomly."
+            )
+        },
+    )
+
+    # LoRA arguments
     use_lora: bool = field(
         default=False,
         metadata={"help": "Whether to use LoRa"}
@@ -26,7 +45,7 @@ class PeftArguments:
     target_modules: Optional[Union[List[str], str]] = field(
         default=None,
         metadata={
-            "help": "List of module names or regex expression of the module names to replace with Lora."
+            "help": "List of module names or regex expression of the module names to replace with Lora/IA3."
             "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$' "
         },
     )
@@ -40,7 +59,7 @@ class PeftArguments:
     modules_to_save: Optional[List[str]] = field(
         default=None,
         metadata={
-            "help": "List of modules apart from LoRA layers to be set as trainable and saved in the final checkpoint. "
+            "help": "List of modules apart from LoRA/IA3 layers to be set as trainable and saved in the final checkpoint. "
             "For example, in Sequence Classification or Token Classification tasks, "
             "the final layer `classifier/score` are randomly initialized and as such need to be trainable and saved."
         },
@@ -86,37 +105,46 @@ class PeftArguments:
             )
         },
     )
-
-
-
-
-    # Prompt tuning arguments
-    use_prompt_tuning: bool = field(
+    fan_in_fan_out: bool = field(
         default=False,
-        metadata={"help": "Whether to use prompt tuning"}
+        metadata={"help": "Set this to True if the layer to replace stores weight like (fan_in, fan_out)"},
     )
-    num_virtual_tokens: int = field(
-        default=None,
-        metadata={"help": "Number of virtual tokens to use for prompt tuning."}
+
+    # IA3 arguments
+    use_ia3: bool = field(
+        default=False,
+        metadata={"help": "Whether to use IA3"}
     )
-    virtual_tokens_init_text: Optional[str] = field(
+    feedforward_modules: Optional[Union[List[str], str]] = field(
         default=None,
         metadata={
+            "help": "List of module names or a regex expression of module names which are feedforward"
+            "For example, ['output.dense']"
+        },
+    )
+    init_ia3_weights: bool = field(
+        default=True,
+        metadata={
             "help": (
-                "Initialize the virtual tokens with the given text. Otherwise, the virtual tokens will be initialized randomly."
-            )
+                "Whether to initialize the weights of the IA3 layers with their default initialization. Don't change "
+                "this setting, except if you know exactly what you're doing."
+            ),
         },
     )
 
+
+
     def __post_init__(self):
 
-        # only one of the two can be used
-        if self.use_lora and self.use_prompt_tuning:
-            raise ValueError("Only one of `use_lora` and `use_prompt_tuning` can be used.")
+        # only one of the three can be used
+        if sum([self.use_lora, self.use_ia3, self.use_prompt_tuning]) > 1:
+            raise ValueError("Only one of `use_lora`, `use_ia3`, or `use_prompt_tuning` can be used at a time.")
 
         # handle lists of str. split the string by comma
         if isinstance(self.target_modules, str):
             self.target_modules = self.target_modules.split(",")
+        if isinstance(self.feedforward_modules, str):
+            self.feedforward_modules = self.feedforward_modules.split(",")
         if isinstance(self.modules_to_save, str):
             self.modules_to_save = self.modules_to_save.split(",")
         if isinstance(self.layers_to_transform, str):
